@@ -219,7 +219,7 @@ utils.tryResolve = function(name, options) {
   } catch (err) {}
 
   // if a cwd was defined, go directly to jail, don't pass go.
-  if (typeof opts.cwd === 'string') {
+  if (typeof opts.cwd === 'string' && opts.cwd !== utils.gm) {
     return;
   }
 
