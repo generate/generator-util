@@ -15,10 +15,9 @@ var path = require('path');
 
 var debug = require('debug')('generators:util');
 var utils = require('lazy-cache')(require);
-
-/* eslint-disable no-native-reassign */
+// eslint-disable no-native-reassign
 var fn = require;
-/* eslint-disable no-undef */
+// eslint-disable no-undef
 require = utils;
 
 /**
@@ -172,6 +171,23 @@ utils.toGeneratorPath = function(name) {
     name = name.split(/\.generators\.|\./g).join('.generators.');
   }
   return 'generators.' + name;
+};
+
+/**
+ * Return the filepath for `configfile` or undefined
+ * if the file does not exist.
+ *
+ * @param {String} `configfile`
+ * @param {Object} `options`
+ * @return {String}
+ */
+
+utils.localConfig = function(configfile, options) {
+  var opts = utils.extend({cwd: process.cwd()}, options);
+  var configpath = path.resolve(opts.cwd, configfile);
+  if (utils.exists(configpath)) {
+    return configpath;
+  }
 };
 
 /**
