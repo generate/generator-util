@@ -13,7 +13,7 @@ var path = require('path');
  * Module dependencies
  */
 
-var debug = require('debug')('generators:util');
+var debug = require('debug')('base:generators:util');
 var utils = require('lazy-cache')(require);
 // eslint-disable no-native-reassign
 var fn = require;
@@ -182,12 +182,14 @@ utils.toGeneratorPath = function(name) {
  * @return {String}
  */
 
-utils.localConfig = function(configfile, options) {
+utils.configfile = function(filepath, options) {
   var opts = utils.extend({cwd: process.cwd()}, options);
-  var configpath = path.resolve(opts.cwd, configfile);
-  if (utils.exists(configpath)) {
-    return configpath;
+  var configpath = path.resolve(opts.cwd, filepath);
+
+  if (!utils.exists(configpath)) {
+    throw new Error('file "' + configpath + '" does not exist');
   }
+  return utils.tryRequire(configpath);
 };
 
 /**
@@ -247,22 +249,25 @@ utils.tryResolve = function(name, options) {
 };
 
 /**
- * Try to require the given module, failing silently if
- * it doesn't exist.
+ * Try to require the given module, failing silently if it doesn't exist.
+ * The function first calls `require` on the given `name`, then tries
+ * `require(path.resolve(name))` before giving up.
  *
  * ```js
  * utils.tryRequire('foo');
  * ```
  * @param  {String} `name` The module name or file path
- * @param  {Object} `options`
- * @return {any|Null} Returns the value of requiring the specified module, or `null`
+ * @return {any|undefined} Returns the value of requiring the specified module, or `undefined` if unsuccessful.
  * @api public
  */
 
-utils.tryRequire = function(fp, options) {
+utils.tryRequire = function(name) {
   try {
-    return require(utils.tryResolve(fp, options));
-  } catch (err) {}
+    return require(name);
+  } catch (err) {};
+  try {
+    return require(path.resolve(name));
+  } catch (err) {};
 };
 
 /**
