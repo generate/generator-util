@@ -13,6 +13,7 @@ var path = require('path');
  * Module dependencies
  */
 
+var find = require('./lib/find');
 var debug = require('debug')('base:generators:util');
 var utils = require('lazy-cache')(require);
 // eslint-disable no-native-reassign
@@ -31,6 +32,66 @@ require('kind-of', 'typeOf');
 require('resolve');
 require('try-open');
 require = fn;
+
+/**
+ * Returns true if the given `value` is a function.
+ *
+ * ```js
+ * utils.isFunction('foo');
+ * //=> false
+ *
+ * utils.isFunction(function() {});
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isFunction = function(value) {
+  return utils.typeOf(value) === 'function';
+};
+
+/**
+ * Returns true if the given `value` is a boolean.
+ *
+ * ```js
+ * utils.isBoolean('foo');
+ * //=> false
+ *
+ * utils.isBoolean(false);
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isBoolean = function(value) {
+  return utils.typeOf(value) === 'boolean';
+};
+
+/**
+ * Returns true if a the given `value` is a string.
+ *
+ * ```js
+ * utils.isString('foo');
+ * //=> false
+ *
+ * utils.isString({});
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isString = function(value) {
+  return utils.typeOf(value) === 'string';
+};
 
 /**
  * Returns true if a the given `value` is an object.
@@ -91,6 +152,19 @@ utils.exists = function(fp) {
 };
 
 /**
+ * Rename the `key` used for storing views/templates
+ *
+ * @param {String} `key`
+ * @param {Object} `view` the `renameKey` method is used by [templates][] for both setting and getting templates. When setting, `view` is exposed as the second parameter.
+ * @return {String}
+ * @api public
+ */
+
+utils.renameKey = function(key, view) {
+  return view ? view.filename : path.basename(key, path.extname(key));
+};
+
+/**
  * Opposite of `.toFullname`, creates an "alias" from the given
  * `name` by either stripping `options.prefix` from the name, or
  * just removing everything up to the first dash. If `options.alias`
@@ -119,8 +193,10 @@ utils.toAlias = function(name, options) {
     var re = new RegExp('^' + opts.prefix + '-?');
     return name.replace(re, '');
   }
-  var basename = path.basename(name, path.extname(name));
-  return basename.slice(basename.indexOf('-') + 1);
+  if (utils.isAbsolute(name)) {
+    name = path.basename(name, path.extname(name));
+  }
+  return name.slice(name.indexOf('-') + 1);
 };
 
 /**
@@ -142,8 +218,12 @@ utils.toAlias = function(name, options) {
 
 utils.toFullname = function(alias, options) {
   var opts = utils.extend({}, options);
-  if (alias.indexOf(opts.prefix) === -1) {
-    return opts.prefix + '-' + alias;
+  var prefix = opts.prefix || opts.modulename;
+  if (typeof prefix === 'undefined') {
+    throw new Error('expected prefix to be a string');
+  }
+  if (alias.indexOf(prefix) === -1) {
+    return prefix + '-' + alias;
   }
   return alias;
 };
@@ -160,7 +240,7 @@ utils.toFullname = function(alias, options) {
  * @api public
  */
 
-utils.toGeneratorPath = function(name) {
+utils.toGeneratorPath = function(name, prefix) {
   if (/[\\\/]/.test(name)) {
     return null;
   }
@@ -170,7 +250,20 @@ utils.toGeneratorPath = function(name) {
   if (~name.indexOf('.')) {
     name = name.split(/\.generators\.|\./g).join('.generators.');
   }
-  return 'generators.' + name;
+  return prefix === false ? name : ('generators.' + name);
+};
+
+/**
+ * Get a generator from `app`.
+ *
+ * @param {Object} `app`
+ * @param {String} `name` Generator name
+ * @return {Object} Returns the generator instance.
+ * @api public
+ */
+
+utils.getGenerator = function(app, name) {
+  return app.get(utils.toGeneratorPath(name));
 };
 
 /**
@@ -182,9 +275,9 @@ utils.toGeneratorPath = function(name) {
  * @return {String}
  */
 
-utils.configfile = function(filepath, options) {
+utils.configfile = function(configfile, options) {
   var opts = utils.extend({cwd: process.cwd()}, options);
-  var configpath = path.resolve(opts.cwd, filepath);
+  var configpath = path.resolve(opts.cwd, configfile);
 
   if (!utils.exists(configpath)) {
     throw new Error('file "' + configpath + '" does not exist');
@@ -216,24 +309,30 @@ utils.tryResolve = function(name, options) {
   var opts = utils.extend({configfile: 'generator.js'}, options);
   debug('tryResolve: "%s"', name);
 
-  if (utils.isAbsolute(name) && utils.exists(name)) {
-    return name;
-  }
-
   var filepath = path.resolve(name);
   if (utils.exists(filepath)) {
     return filepath;
   }
 
   filepath = opts.cwd ? path.resolve(opts.cwd, name) : name;
-  if (filepath.indexOf(opts.configfile) === -1) {
-    filepath = path.join(filepath, opts.configfile);
+  if (opts.configfile && filepath.indexOf(opts.configfile) === -1) {
+    filepath = path.resolve(filepath, opts.configfile);
   }
 
   // try to resolve `name` from working directory
   try {
     debug('resolving: "%s", from cwd: "%s"', filepath, opts.cwd);
     return utils.resolve.sync(filepath);
+  } catch (err) {}
+
+  // try to resolve `name` from working directory
+  try {
+    filepath = path.resolve('node_modules', name);
+    if (opts.configfile) {
+      filepath = path.join(filepath, opts.configfile);
+    }
+    debug('resolving: "%s", from cwd: "%s"', filepath);
+    return utils.resolve.sync(filepath, {basedir: opts.cwd});
   } catch (err) {}
 
   // if a cwd was defined, go directly to jail, don't pass go.
@@ -261,14 +360,77 @@ utils.tryResolve = function(name, options) {
  * @api public
  */
 
-utils.tryRequire = function(name) {
+utils.tryRequire = function(name, options) {
+  var opts = utils.extend({}, options);
   try {
     return require(name);
-  } catch (err) {};
+  } catch (err) {
+    handleError(err);
+  };
+
   try {
     return require(path.resolve(name));
-  } catch (err) {};
+  } catch (err) {
+    handleError(err);
+  };
+
+  try {
+    var prefix = opts.prefix || opts.modulename;
+    if (prefix) name = utils.toFullname(name, opts);
+    return require(path.resolve(utils.gm, name));
+  } catch (err) {
+    handleError(err);
+  };
 };
+
+/**
+ * Modified from the `tableize` lib, which replaces
+ * dashes with underscores, and we don't want that behavior.
+ * Tableize `obj` by flattening and normalizing the keys.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api public
+ */
+
+utils.tableize = function(obj) {
+  var table = {};
+  flatten(table, obj, '');
+  return table;
+};
+
+/**
+ * Recursively flatten object keys to use dot-notation.
+ *
+ * @param {Object} `table`
+ * @param {Object} `obj`
+ * @param {String} `parent`
+ */
+
+function flatten(table, obj, parent) {
+  for (var key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      var val = obj[key];
+
+      key = parent + key;
+      if (utils.isObject(val)) {
+        flatten(table, val, key + '.');
+      } else {
+        table[key] = val;
+      }
+    }
+  }
+}
+
+/**
+ * Placeholder
+ */
+
+function handleError(err) {
+  if (err.code !== 'MODULE_NOT_FOUND') {
+    throw err;
+  }
+}
 
 /**
  * Expose `utils`
