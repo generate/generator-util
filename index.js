@@ -8,6 +8,8 @@
 'use strict';
 
 var path = require('path');
+var resolveCache = {};
+var requireCache = {};
 
 /**
  * Module dependencies
@@ -193,9 +195,7 @@ utils.toAlias = function(name, options) {
     var re = new RegExp('^' + opts.prefix + '-?');
     return name.replace(re, '');
   }
-  if (utils.isAbsolute(name)) {
-    name = path.basename(name, path.extname(name));
-  }
+  name = path.basename(name, path.extname(name));
   return name.slice(name.indexOf('-') + 1);
 };
 
@@ -221,6 +221,10 @@ utils.toFullname = function(alias, options) {
   var prefix = opts.prefix || opts.modulename;
   if (typeof prefix === 'undefined') {
     throw new Error('expected prefix to be a string');
+  }
+  // if it's a filepath, just return it
+  if (utils.isAbsolute(alias)) {
+    return alias;
   }
   if (alias.indexOf(prefix) === -1) {
     return prefix + '-' + alias;
@@ -308,43 +312,25 @@ utils.configfile = function(configfile, options) {
 utils.tryResolve = function(name, options) {
   var opts = utils.extend({configfile: 'generator.js'}, options);
   debug('tryResolve: "%s"', name);
+  var key = name + '::' + opts.configfile;
 
-  var filepath = path.resolve(name);
-  if (utils.exists(filepath)) {
-    return filepath;
+  var filepath = find.resolveModule(name, opts);
+  if (!utils.exists(filepath)) return;
+  if (resolveCache[key]) {
+    return resolveCache[key];
   }
 
-  filepath = opts.cwd ? path.resolve(opts.cwd, name) : name;
-  if (opts.configfile && filepath.indexOf(opts.configfile) === -1) {
-    filepath = path.resolve(filepath, opts.configfile);
-  }
-
-  // try to resolve `name` from working directory
   try {
-    debug('resolving: "%s", from cwd: "%s"', filepath, opts.cwd);
-    return utils.resolve.sync(filepath);
-  } catch (err) {}
-
-  // try to resolve `name` from working directory
-  try {
-    filepath = path.resolve('node_modules', name);
-    if (opts.configfile) {
-      filepath = path.join(filepath, opts.configfile);
+    var modulepath = utils.resolve.sync(filepath);
+    if (modulepath) {
+      return (resolveCache[key] = modulepath);
     }
-    debug('resolving: "%s", from cwd: "%s"', filepath);
-    return utils.resolve.sync(filepath, {basedir: opts.cwd});
   } catch (err) {}
 
-  // if a cwd was defined, go directly to jail, don't pass go.
-  if (typeof opts.cwd === 'string' && opts.cwd !== utils.gm) {
-    return;
+  filepath = path.join(filepath, opts.configfile);
+  if (utils.exists(filepath)) {
+    return (resolveCache[key] = filepath);
   }
-
-  // try resolve `name` in global npm modules
-  try {
-    debug('resolving from global modules: "%s"', name);
-    return utils.resolve.sync(name, {basedir: utils.gm});
-  } catch (err) {}
 };
 
 /**
@@ -361,26 +347,31 @@ utils.tryResolve = function(name, options) {
  */
 
 utils.tryRequire = function(name, options) {
-  var opts = utils.extend({}, options);
-  try {
-    return require(name);
-  } catch (err) {
-    handleError(err);
-  };
+  var fn;
+
+  if (requireCache[name]) {
+    return requireCache[name];
+  }
 
   try {
-    return require(path.resolve(name));
+    fn = require(name);
+    if (fn) {
+      return (requireCache[name] = fn);
+    }
   } catch (err) {
     handleError(err);
-  };
+  }
 
+  var filepath = utils.tryResolve(name, options);
+  if (!filepath) return;
   try {
-    var prefix = opts.prefix || opts.modulename;
-    if (prefix) name = utils.toFullname(name, opts);
-    return require(path.resolve(utils.gm, name));
+    fn = require(filepath);
+    if (fn) {
+      return (requireCache[name] = fn);
+    }
   } catch (err) {
     handleError(err);
-  };
+  }
 };
 
 /**

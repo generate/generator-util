@@ -4,6 +4,7 @@ require('mocha');
 var path = require('path');
 var assert = require('assert');
 var commands = require('spawn-commands');
+require('generate-foo/generator.js');
 var utils = require('./');
 
 var fixture = path.resolve.bind(path, __dirname, 'fixtures/generators');
