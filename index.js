@@ -8,25 +8,18 @@
 'use strict';
 
 var path = require('path');
-var resolveCache = {};
-var requireCache = {};
-
-/**
- * Module dependencies
- */
-
-var find = require('./lib/find');
 var debug = require('debug')('base:generators:util');
 var utils = require('lazy-cache')(require);
-// eslint-disable no-native-reassign
-var fn = require;
-// eslint-disable no-undef
-require = utils;
+var find = require('./lib/find');
+var resolveCache = {};
+var requireCache = {};
 
 /**
  * Lazily required module dependencies
  */
 
+var fn = require;
+require = utils;
 require('extend-shallow', 'extend');
 require('global-modules', 'gm');
 require('is-absolute');
@@ -34,105 +27,6 @@ require('kind-of', 'typeOf');
 require('resolve');
 require('try-open');
 require = fn;
-
-/**
- * Returns true if the given `value` is a function.
- *
- * ```js
- * utils.isFunction('foo');
- * //=> false
- *
- * utils.isFunction(function() {});
- * //=> true
- * ```
- *
- * @param {any} `value`
- * @return {Boolean}
- * @api public
- */
-
-utils.isFunction = function(value) {
-  return utils.typeOf(value) === 'function';
-};
-
-/**
- * Returns true if the given `value` is a boolean.
- *
- * ```js
- * utils.isBoolean('foo');
- * //=> false
- *
- * utils.isBoolean(false);
- * //=> true
- * ```
- *
- * @param {any} `value`
- * @return {Boolean}
- * @api public
- */
-
-utils.isBoolean = function(value) {
-  return utils.typeOf(value) === 'boolean';
-};
-
-/**
- * Returns true if a the given `value` is a string.
- *
- * ```js
- * utils.isString('foo');
- * //=> false
- *
- * utils.isString({});
- * //=> true
- * ```
- *
- * @param {any} `value`
- * @return {Boolean}
- * @api public
- */
-
-utils.isString = function(value) {
-  return utils.typeOf(value) === 'string';
-};
-
-/**
- * Returns true if a the given `value` is an object.
- *
- * ```js
- * utils.isObject('foo');
- * //=> false
- *
- * utils.isObject({});
- * //=> true
- * ```
- *
- * @param {any} `value`
- * @return {Boolean}
- * @api public
- */
-
-utils.isObject = function(value) {
-  return utils.typeOf(value) === 'object';
-};
-
-/**
- * Cast the given `value` to an array.
- *
- * ```js
- * utils.arrayify('foo');
- * //=> ['foo']
- *
- * utils.arrayify(['foo']);
- * //=> ['foo']
- * ```
- * @param {String|Array} `value`
- * @return {Array}
- * @api public
- */
-
-utils.arrayify = function(val) {
-  return val ? (Array.isArray(val) ? val : [val]) : [];
-};
 
 /**
  * Return true if a filepath exists on the file system.
@@ -191,12 +85,12 @@ utils.toAlias = function(name, options) {
   if (typeof opts.alias === 'function') {
     return opts.alias(name);
   }
-  if (typeof opts.prefix === 'string') {
-    var re = new RegExp('^' + opts.prefix + '-?');
+  var prefix = opts.prefix || opts.modulename;
+  if (typeof prefix === 'string') {
+    var re = new RegExp('^' + prefix + '-');
     return name.replace(re, '');
   }
-  name = path.basename(name, path.extname(name));
-  return name.slice(name.indexOf('-') + 1);
+  return name;
 };
 
 /**
@@ -422,6 +316,105 @@ function handleError(err) {
     throw err;
   }
 }
+
+/**
+ * Returns true if the given `value` is a function.
+ *
+ * ```js
+ * utils.isFunction('foo');
+ * //=> false
+ *
+ * utils.isFunction(function() {});
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isFunction = function(value) {
+  return utils.typeOf(value) === 'function';
+};
+
+/**
+ * Returns true if the given `value` is a boolean.
+ *
+ * ```js
+ * utils.isBoolean('foo');
+ * //=> false
+ *
+ * utils.isBoolean(false);
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isBoolean = function(value) {
+  return utils.typeOf(value) === 'boolean';
+};
+
+/**
+ * Returns true if a the given `value` is a string.
+ *
+ * ```js
+ * utils.isString('foo');
+ * //=> false
+ *
+ * utils.isString({});
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isString = function(value) {
+  return utils.typeOf(value) === 'string';
+};
+
+/**
+ * Returns true if a the given `value` is an object.
+ *
+ * ```js
+ * utils.isObject('foo');
+ * //=> false
+ *
+ * utils.isObject({});
+ * //=> true
+ * ```
+ *
+ * @param {any} `value`
+ * @return {Boolean}
+ * @api public
+ */
+
+utils.isObject = function(value) {
+  return utils.typeOf(value) === 'object';
+};
+
+/**
+ * Cast the given `value` to an array.
+ *
+ * ```js
+ * utils.arrayify('foo');
+ * //=> ['foo']
+ *
+ * utils.arrayify(['foo']);
+ * //=> ['foo']
+ * ```
+ * @param {String|Array} `value`
+ * @return {Array}
+ * @api public
+ */
+
+utils.arrayify = function(val) {
+  return val ? (Array.isArray(val) ? val : [val]) : [];
+};
 
 /**
  * Expose `utils`

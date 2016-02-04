@@ -56,12 +56,12 @@ describe('utils', function() {
   });
 
   describe('.toAlias', function() {
-    it('should create an alias from a name with a dash', function() {
-      assert.equal(utils.toAlias('foo-bar'), 'bar');
+    it('should not create an alias when no prefix is passed', function() {
+      assert.equal(utils.toAlias('foo-bar'), 'foo-bar');
     });
 
     it('should create an alias using the given prefix', function() {
-      assert.equal(utils.toAlias('foo-bar', {prefix: 'f'}), 'oo-bar');
+      assert.equal(utils.toAlias('abc-xyz', {prefix: 'abc'}), 'xyz');
     });
 
     it('should create an alias using the given alias function', function() {
