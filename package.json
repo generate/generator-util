@@ -1,7 +1,7 @@
 {
   "name": "generator-util",
   "description": "Utils for `generate` generators.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "homepage": "https://github.com/jonschlinkert/generator-util",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
   "repository": "jonschlinkert/generator-util",
