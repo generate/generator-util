@@ -7,8 +7,9 @@
 
 'use strict';
 
+var fs = require('fs');
 var path = require('path');
-var debug = require('debug')('base:generators:util');
+var debug = require('debug')('base:generator:util');
 var utils = require('lazy-cache')(require);
 var find = require('./lib/find');
 var resolveCache = {};
@@ -28,6 +29,50 @@ require('resolve');
 require('try-open');
 require = fn;
 
+utils.dest = function(app) {
+  var dest = app.dest;
+
+  app.define('dest', function(dir, options) {
+    var opts = utils.extend({ cwd: this.cwd }, options);
+    if (typeof dir !== 'function' && typeof this.rename === 'function') {
+      dir = this.rename(dir);
+    }
+    return dest.call(this, dir, opts);
+  });
+};
+
+utils.src = function(app) {
+  var src = app.src;
+
+  app.define('src', function(patterns, options) {
+    var config = { renameKey: utils.renameKey };
+    config.collection = 'templates';
+    config.cwd = (this.env && this.env.cwd) || process.cwd();
+
+    var opts = utils.extend(config, options);
+    return src.call(this, patterns, opts);
+  });
+};
+
+utils.create = function(app) {
+  var create = app.create;
+
+  app.define('create', function(name, options) {
+    var env = this.env || {};
+    var config = {renameKey: utils.renameKey, cwd: env.templates};
+    var opts = utils.extend(config, options);
+    var collection = this[name];
+
+    if (typeof collection === 'undefined') {
+      collection = create.call(this, name, opts);
+    } else {
+      collection.option(opts);
+    }
+
+    return collection;
+  });
+};
+
 /**
  * Return true if a filepath exists on the file system.
  *
@@ -44,7 +89,11 @@ require = fn;
  */
 
 utils.exists = function(fp) {
-  return fp && typeof utils.tryOpen(fp, 'r') === 'number';
+  return fp && (typeof utils.tryOpen(fp, 'r') === 'number');
+};
+
+utils.isDirectory = function(fp) {
+  return fs.statSync(fp).isDirectory();
 };
 
 /**
@@ -86,7 +135,7 @@ utils.toAlias = function(name, options) {
     return opts.alias(name);
   }
   var prefix = opts.prefix || opts.modulename;
-  if (typeof prefix === 'string') {
+  if (prefix) {
     var re = new RegExp('^' + prefix + '-');
     return name.replace(re, '');
   }
@@ -174,9 +223,9 @@ utils.getGenerator = function(app, name) {
  */
 
 utils.configfile = function(configfile, options) {
+  debug('resolving configfile "%s"', configfile);
   var opts = utils.extend({cwd: process.cwd()}, options);
   var configpath = path.resolve(opts.cwd, configfile);
-
   if (!utils.exists(configpath)) {
     throw new Error('file "' + configpath + '" does not exist');
   }
@@ -205,26 +254,21 @@ utils.configfile = function(configfile, options) {
 
 utils.tryResolve = function(name, options) {
   var opts = utils.extend({configfile: 'generator.js'}, options);
-  debug('tryResolve: "%s"', name);
-  var key = name + '::' + opts.configfile;
+  debug('trying to resolve "%s"', name);
 
   var filepath = find.resolveModule(name, opts);
   if (!utils.exists(filepath)) return;
-  if (resolveCache[key]) {
-    return resolveCache[key];
+  if (resolveCache[name]) {
+    return resolveCache[name];
   }
 
   try {
     var modulepath = utils.resolve.sync(filepath);
     if (modulepath) {
-      return (resolveCache[key] = modulepath);
+      resolveCache[name] = modulepath;
+      return modulepath;
     }
   } catch (err) {}
-
-  filepath = path.join(filepath, opts.configfile);
-  if (utils.exists(filepath)) {
-    return (resolveCache[key] = filepath);
-  }
 };
 
 /**
@@ -249,9 +293,7 @@ utils.tryRequire = function(name, options) {
 
   try {
     fn = require(name);
-    if (fn) {
-      return (requireCache[name] = fn);
-    }
+    if (fn) return (requireCache[name] = fn);
   } catch (err) {
     handleError(err);
   }
@@ -260,9 +302,7 @@ utils.tryRequire = function(name, options) {
   if (!filepath) return;
   try {
     fn = require(filepath);
-    if (fn) {
-      return (requireCache[name] = fn);
-    }
+    if (fn) return (requireCache[name] = fn);
   } catch (err) {
     handleError(err);
   }
