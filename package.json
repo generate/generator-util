@@ -55,6 +55,7 @@
     "ignore": []
   },
   "verb": {
+    "toc": true,
     "layout": "default",
     "plugins": [
       "gulp-format-md"
