@@ -41,6 +41,25 @@ utils.dest = function(app) {
   });
 };
 
+utils.prompt = function(app) {
+  app.define('prompt', function() {
+    if (app.enabled('init')) {
+      app.questions.enable('force');
+    }
+
+    var args = [].slice.call(arguments);
+    var cb = args.pop();
+    function callback(err, answers) {
+      if (err) return cb(err);
+      app.data(answers);
+      cb();
+    }
+
+    args.push(callback);
+    return app.ask.apply(this, args);
+  });
+};
+
 utils.src = function(app) {
   var src = app.src;
 
@@ -54,23 +73,30 @@ utils.src = function(app) {
   });
 };
 
-utils.create = function(app) {
-  var create = app.create;
+utils.create = function(options) {
+  return function fn(app) {
+    if (this.isRegistered('custom-create')) return;
+    if (!this.isApp) return;
+    var create = this.create;
 
-  app.define('create', function(name, options) {
-    var env = this.env || {};
-    var config = {renameKey: utils.renameKey, cwd: env.templates};
-    var opts = utils.extend(config, options);
-    var collection = this[name];
+    this.define('create', function(name, options) {
+      var env = this.env || {};
+      var cwd = env.templates || path.resolve(this.cwd, 'templates');
+      var config = { engine: '*', renameKey: utils.renameKey, cwd: cwd };
+      var createOpts = this.option(['create', name]);
+      var opts = utils.extend({}, config, createOpts, options);
 
-    if (typeof collection === 'undefined') {
-      collection = create.call(this, name, opts);
-    } else {
-      collection.option(opts);
-    }
+      var collection = this[name];
+      if (typeof collection === 'undefined') {
+        collection = create.call(this, name, opts);
+      } else {
+        collection.option(opts);
+      }
+      return collection;
+    });
 
-    return collection;
-  });
+    return fn;
+  };
 };
 
 /**
@@ -161,6 +187,9 @@ utils.toAlias = function(name, options) {
 
 utils.toFullname = function(alias, options) {
   var opts = utils.extend({}, options);
+  if (typeof opts.toFullname === 'function') {
+    return opts.toFullname(alias, opts);
+  }
   var prefix = opts.prefix || opts.modulename;
   if (typeof prefix === 'undefined') {
     throw new Error('expected prefix to be a string');
@@ -173,6 +202,22 @@ utils.toFullname = function(alias, options) {
     return prefix + '-' + alias;
   }
   return alias;
+};
+
+/**
+ * Returns true if (only) the `default` task is defined
+ *
+ * @param {Object} `opts`
+ * @return {Boolean}
+ */
+
+utils.isDefaultTask = function(obj) {
+  if (Array.isArray(obj)) {
+    return utils.isDefaultTask({tasks: obj});
+  }
+  return obj.tasks
+    && obj.tasks.length === 1
+    && obj.tasks[0] === 'default';
 };
 
 /**
