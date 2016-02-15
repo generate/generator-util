@@ -1,7 +1,7 @@
 {
   "name": "generator-util",
   "description": "Utils for `generate` generators.",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "homepage": "https://github.com/jonschlinkert/generator-util",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
   "repository": "jonschlinkert/generator-util",
@@ -28,6 +28,7 @@
     "kind-of": "^3.0.2",
     "lazy-cache": "^1.0.3",
     "resolve": "^1.1.7",
+    "resolve-dir": "^0.1.0",
     "try-open": "^0.1.0"
   },
   "devDependencies": {
@@ -51,15 +52,7 @@
     "util",
     "utils"
   ],
-  "lintDeps": {
-    "ignore": []
-  },
   "verb": {
-    "toc": true,
-    "layout": "default",
-    "plugins": [
-      "gulp-format-md"
-    ],
     "related": {
       "list": [
         "base",
@@ -70,6 +63,14 @@
         "base-tasks",
         "generate"
       ]
-    }
+    },
+    "toc": true,
+    "layout": "default",
+    "plugins": [
+      "gulp-format-md"
+    ]
+  },
+  "lintDeps": {
+    "ignore": []
   }
 }
