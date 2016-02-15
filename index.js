@@ -26,6 +26,7 @@ require('global-modules', 'gm');
 require('is-absolute');
 require('kind-of', 'typeOf');
 require('resolve');
+require('resolve-dir');
 require('try-open');
 require = fn;
 
@@ -100,6 +101,31 @@ utils.create = function(options) {
 };
 
 /**
+ * Return a home-relative filepath
+ *
+ * ```js
+ * utils.homeRelative('foo');
+ * //=> 'dev/foo'
+ * ```
+ * @param {String} `filepath`
+ * @return {String}
+ * @api public
+ */
+
+utils.homeRelative = function(fp) {
+  if (typeof fp === 'undefined') {
+    throw new TypeError('utils.homeRelative expected filepath to be a string');
+  }
+  var dir = path.resolve(utils.resolveDir(fp));
+  var home = path.resolve(utils.resolveDir('~/'));
+  fp = path.relative(home, dir);
+  if (fp.charAt(0) === '/') {
+    fp = fp.slice(1);
+  }
+  return fp;
+};
+
+/**
  * Return true if a filepath exists on the file system.
  *
  * ```js
@@ -118,8 +144,16 @@ utils.exists = function(fp) {
   return fp && (typeof utils.tryOpen(fp, 'r') === 'number');
 };
 
+/**
+ * Return true if a filepath exists and is a directory.
+ *
+ * @param {String} `filepath`
+ * @return {Boolean}
+ * @api public
+ */
+
 utils.isDirectory = function(fp) {
-  return fs.statSync(fp).isDirectory();
+  return utils.exists(fp) && fs.statSync(fp).isDirectory();
 };
 
 /**
@@ -301,6 +335,16 @@ utils.tryResolve = function(name, options) {
   var opts = utils.extend({configfile: 'generator.js'}, options);
   debug('trying to resolve "%s"', name);
 
+  if (opts.cwd) {
+    try {
+      var modulepath = utils.resolve.sync(name, {basedir: opts.cwd});
+      if (modulepath) {
+        resolveCache[name] = modulepath;
+        return modulepath;
+      }
+    } catch (err) {}
+  }
+
   var filepath = find.resolveModule(name, opts);
   if (!utils.exists(filepath)) return;
   if (resolveCache[name]) {
@@ -308,7 +352,7 @@ utils.tryResolve = function(name, options) {
   }
 
   try {
-    var modulepath = utils.resolve.sync(filepath);
+    modulepath = utils.resolve.sync(filepath);
     if (modulepath) {
       resolveCache[name] = modulepath;
       return modulepath;
@@ -330,23 +374,24 @@ utils.tryResolve = function(name, options) {
  */
 
 utils.tryRequire = function(name, options) {
+  var opts = utils.extend({}, options);
   var fn;
 
   if (requireCache[name]) {
     return requireCache[name];
   }
 
+  var filepath = utils.tryResolve(name, opts);
+  if (!filepath) return;
   try {
-    fn = require(name);
+    fn = require(filepath);
     if (fn) return (requireCache[name] = fn);
   } catch (err) {
     handleError(err);
   }
 
-  var filepath = utils.tryResolve(name, options);
-  if (!filepath) return;
   try {
-    fn = require(filepath);
+    fn = require(name);
     if (fn) return (requireCache[name] = fn);
   } catch (err) {
     handleError(err);
