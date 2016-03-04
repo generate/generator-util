@@ -62,14 +62,14 @@ utils.create = function(options) {
     var create = this.create;
 
     this.define('create', function(name, options) {
-      var env = this.env || {};
+      var opts = utils.extend({}, options);
       var cwd = opts.cwd ? path.resolve(opts.cwd) : this.cwd;
       if (!opts.cwd && utils.exists(path.resolve(cwd, 'templates'))) {
         cwd = path.resolve(this.cwd, 'templates');
       }
       var config = { engine: '*', renameKey: utils.renameKey, cwd: cwd };
       var createOpts = this.option(['create', name]);
-      var opts = utils.extend({}, config, createOpts, options);
+      opts = utils.extend({}, config, createOpts, opts);
 
       var collection = this[name];
       if (typeof collection === 'undefined') {
