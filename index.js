@@ -27,7 +27,7 @@ require('is-absolute');
 require('kind-of', 'typeOf');
 require('resolve');
 require('resolve-dir');
-require('try-open');
+require('try-open', 'exists');
 require = fn;
 
 utils.dest = function(app) {
@@ -39,25 +39,6 @@ utils.dest = function(app) {
       dir = this.rename(dir);
     }
     return dest.call(this, dir, opts);
-  });
-};
-
-utils.prompt = function(app) {
-  app.define('prompt', function() {
-    if (app.enabled('init')) {
-      app.questions.enable('force');
-    }
-
-    var args = [].slice.call(arguments);
-    var cb = args.pop();
-    function callback(err, answers) {
-      if (err) return cb(err);
-      app.data(answers);
-      cb();
-    }
-
-    args.push(callback);
-    return app.ask.apply(this, args);
   });
 };
 
@@ -82,7 +63,10 @@ utils.create = function(options) {
 
     this.define('create', function(name, options) {
       var env = this.env || {};
-      var cwd = env.templates || path.resolve(this.cwd, 'templates');
+      var cwd = opts.cwd ? path.resolve(opts.cwd) : this.cwd;
+      if (!opts.cwd && utils.exists(path.resolve(cwd, 'templates'))) {
+        cwd = path.resolve(this.cwd, 'templates');
+      }
       var config = { engine: '*', renameKey: utils.renameKey, cwd: cwd };
       var createOpts = this.option(['create', name]);
       var opts = utils.extend({}, config, createOpts, options);
@@ -123,25 +107,6 @@ utils.homeRelative = function(fp) {
     fp = fp.slice(1);
   }
   return fp;
-};
-
-/**
- * Return true if a filepath exists on the file system.
- *
- * ```js
- * utils.exists('foo');
- * //=> false
- *
- * utils.exists('gulpfile.js');
- * //=> true
- * ```
- * @param {String} `filepath`
- * @return {Boolean}
- * @api public
- */
-
-utils.exists = function(fp) {
-  return fp && (typeof utils.tryOpen(fp, 'r') === 'number');
 };
 
 /**
