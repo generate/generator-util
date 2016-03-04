@@ -38,7 +38,7 @@
     "gulp-format-md": "^0.1.7",
     "gulp-istanbul": "^0.10.3",
     "gulp-mocha": "^2.2.0",
-    "mocha": "^2.4.5",
+    "mocha": "*",
     "spawn-commands": "^0.3.1"
   },
   "keywords": [
@@ -53,6 +53,15 @@
     "utils"
   ],
   "verb": {
+    "run": true,
+    "toc": false,
+    "layout": "default",
+    "tasks": [
+      "readme"
+    ],
+    "plugins": [
+      "gulp-format-md"
+    ],
     "related": {
       "list": [
         "base",
@@ -64,11 +73,13 @@
         "generate"
       ]
     },
-    "toc": true,
-    "layout": "default",
-    "plugins": [
-      "gulp-format-md"
-    ]
+    "reflinks": [
+      "templates",
+      "verb"
+    ],
+    "lint": {
+      "reflinks": true
+    }
   },
   "lintDeps": {
     "ignore": []

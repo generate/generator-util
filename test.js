@@ -15,7 +15,6 @@ function install(name, cb) {
   }, cb);
 }
 
-
 describe('utils', function() {
   before(function(cb) {
     if (!utils.exists(path.resolve(utils.gm, 'generate-bar'))) {
